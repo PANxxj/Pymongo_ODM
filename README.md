@@ -1,12 +1,1020 @@
-# PyMongo with FastAPI Complete Guide - From Zero to Expert
+# PyMongo with FastAPI: Professional Development Guide
 
-> **Learning Path**: Start from absolute basics and progressively build to advanced MongoDB mastery with FastAPI integration.
+[![Python](https://img.shields.io/badge/python-v3.8+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.68+-green.svg)](https://fastapi.tiangolo.com/)
+[![PyMongo](https://img.shields.io/badge/PyMongo-4.0+-orange.svg)](https://pymongo.readthedocs.io/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-5.0+-brightgreen.svg)](https://www.mongodb.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## 📚 Table of Contents - Progressive Learning Structure
+## Overview
 
-### 🟢 **LEVEL 1: ABSOLUTE BASICS** (Start Here - No MongoDB Knowledge Required)
-1. [What is MongoDB? Simple Introduction](#what-is-mongodb-simple-introduction)
-2. [Your First MongoDB Document](#your-first-mongodb-document)
+This comprehensive guide provides enterprise-grade patterns and best practices for integrating PyMongo with FastAPI. Designed for professional developers, it covers architectural patterns, performance optimization, and production deployment strategies.
+
+### Target Audience
+- **Backend Developers** building REST APIs with FastAPI
+- **Database Engineers** implementing MongoDB solutions
+- **DevOps Engineers** deploying MongoDB applications
+- **Technical Architects** designing scalable systems
+
+### Prerequisites
+- Python 3.8+ development experience
+- Basic understanding of REST API principles
+- Familiarity with database concepts
+- MongoDB installation (local or cloud)
+
+## Architecture Overview
+
+```mermaid
+graph TB
+    A[FastAPI Application] --> B[Pydantic Models]
+    A --> C[Route Handlers]
+    C --> D[Service Layer]
+    D --> E[Repository Pattern]
+    E --> F[PyMongo Driver]
+    F --> G[MongoDB Database]
+    
+    H[Authentication] --> A
+    I[Validation] --> B
+    J[Error Handling] --> C
+    K[Logging] --> D
+    L[Connection Pool] --> F
+```
+
+## Table of Contents
+
+### 🏗️ **FOUNDATION** (Essential Concepts)
+1. [MongoDB Architecture Overview](#mongodb-architecture-overview)
+2. [Environment Setup & Configuration](#environment-setup--configuration)
+3. [Database Design Principles](#database-design-principles)
+4. [Connection Management](#connection-management)
+
+### ⚙️ **CORE IMPLEMENTATION** (Development Patterns)
+5. [FastAPI Integration Architecture](#fastapi-integration-architecture)
+6. [Data Models & Schema Design](#data-models--schema-design)
+7. [Repository Pattern Implementation](#repository-pattern-implementation)
+8. [CRUD Operations & Best Practices](#crud-operations--best-practices)
+9. [Query Optimization Techniques](#query-optimization-techniques)
+
+### 🔍 **DATA OPERATIONS** (Advanced Querying)
+10. [Document Relationships & References](#document-relationships--references)
+11. [Complex Query Patterns](#complex-query-patterns)
+12. [Aggregation Pipeline Design](#aggregation-pipeline-design)
+13. [Full-Text Search Implementation](#full-text-search-implementation)
+14. [Geospatial Data Handling](#geospatial-data-handling)
+
+### 🚀 **PRODUCTION READY** (Enterprise Patterns)
+15. [Performance Optimization Strategies](#performance-optimization-strategies)
+16. [Indexing Strategy & Implementation](#indexing-strategy--implementation)
+17. [Transaction Management](#transaction-management)
+18. [Error Handling & Resilience](#error-handling--resilience)
+19. [Testing Methodologies](#testing-methodologies)
+20. [Security Implementation](#security-implementation)
+
+### 🎯 **DEPLOYMENT & MONITORING** (Operations)
+21. [Production Deployment Patterns](#production-deployment-patterns)
+22. [Monitoring & Observability](#monitoring--observability)
+23. [Scaling Strategies](#scaling-strategies)
+24. [Troubleshooting & Debugging](#troubleshooting--debugging)
+
+---
+
+## 🏗️ FOUNDATION
+
+### MongoDB Architecture Overview
+
+MongoDB is a document-oriented NoSQL database designed for scalability and developer productivity. Understanding its architecture is crucial for building efficient applications.
+
+#### Document Model Fundamentals
+
+```python
+from typing import Dict, List, Optional, Any
+from datetime import datetime
+from enum import Enum
+
+class DocumentModel:
+    """
+    MongoDB documents are BSON (Binary JSON) objects that provide:
+    - Rich data types (ObjectId, DateTime, Binary, etc.)
+    - Nested structures (embedded documents and arrays)
+    - Schema flexibility with optional validation
+    - Horizontal scalability through sharding
+    """
+    
+    @staticmethod
+    def example_document() -> Dict[str, Any]:
+        return {
+            "_id": "ObjectId('507f1f77bcf86cd799439011')",  # Primary key
+            "created_at": datetime.utcnow(),                 # Native datetime
+            "metadata": {                                    # Embedded document
+                "version": "1.0.0",
+                "tags": ["production", "api"]               # Array field
+            },
+            "geolocation": {                                 # GeoJSON support
+                "type": "Point",
+                "coordinates": [-73.856077, 40.848447]
+            }
+        }
+```
+
+#### Key Architectural Concepts
+
+```json
+{
+  "document_structure": {
+    "advantages": [
+      "Natural mapping to application objects",
+      "Atomic operations at document level",
+      "Rich query capabilities including nested fields",
+      "Horizontal scaling through auto-sharding"
+    ],
+    "considerations": [
+      "16MB document size limit",
+      "No multi-document ACID by default (requires transactions)",
+      "Eventual consistency in replica sets",
+      "Query optimization requires proper indexing"
+    ]
+  },
+  "storage_engine": {
+    "wiredTiger": {
+      "compression": "snappy, zlib, or zstd compression",
+      "concurrency": "Document-level locking",
+      "durability": "Journaling with checkpoints",
+      "memory_usage": "Configurable cache size"
+    }
+  },
+  "replication": {
+    "replica_set": "Primary-secondary architecture for high availability",
+    "write_concern": "Configurable acknowledgment levels",
+    "read_preference": "Primary, secondary, or nearest read routing"
+  }
+}
+```
+
+### Environment Setup & Configuration
+
+#### Production-Grade Configuration
+
+```python
+# config/database.py
+import os
+import ssl
+from typing import Optional
+from dataclasses import dataclass
+from pymongo import MongoClient
+from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import ServerSelectionTimeoutError
+import logging
+
+logger = logging.getLogger(__name__)
+
+@dataclass
+class DatabaseConfig:
+    """Production-ready MongoDB configuration"""
+    
+    # Connection Configuration
+    mongodb_url: str = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+    database_name: str = os.getenv("DATABASE_NAME", "production_db")
+    
+    # Connection Pool Configuration
+    max_pool_size: int = int(os.getenv("MONGO_MAX_POOL_SIZE", "100"))
+    min_pool_size: int = int(os.getenv("MONGO_MIN_POOL_SIZE", "10"))
+    max_idle_time_ms: int = int(os.getenv("MONGO_MAX_IDLE_TIME_MS", "30000"))
+    
+    # Timeout Configuration
+    server_selection_timeout_ms: int = int(os.getenv("MONGO_SERVER_SELECTION_TIMEOUT_MS", "5000"))
+    socket_timeout_ms: int = int(os.getenv("MONGO_SOCKET_TIMEOUT_MS", "20000"))
+    connect_timeout_ms: int = int(os.getenv("MONGO_CONNECT_TIMEOUT_MS", "20000"))
+    
+    # Write Concern Configuration
+    write_concern_w: str = os.getenv("MONGO_WRITE_CONCERN_W", "majority")
+    write_concern_j: bool = os.getenv("MONGO_WRITE_CONCERN_J", "true").lower() == "true"
+    write_concern_wtimeout: int = int(os.getenv("MONGO_WRITE_CONCERN_WTIMEOUT", "10000"))
+    
+    # Read Preference
+    read_preference: str = os.getenv("MONGO_READ_PREFERENCE", "primary")
+    
+    # SSL Configuration
+    ssl_enabled: bool = os.getenv("MONGO_SSL_ENABLED", "false").lower() == "true"
+    ssl_cert_reqs: int = ssl.CERT_REQUIRED if ssl_enabled else ssl.CERT_NONE
+    ssl_ca_certs: Optional[str] = os.getenv("MONGO_SSL_CA_CERTS")
+    ssl_cert_file: Optional[str] = os.getenv("MONGO_SSL_CERT_FILE")
+    ssl_key_file: Optional[str] = os.getenv("MONGO_SSL_KEY_FILE")
+
+class DatabaseManager:
+    """Singleton database connection manager"""
+    
+    _instance: Optional['DatabaseManager'] = None
+    _client: Optional[MongoClient] = None
+    _async_client: Optional[AsyncIOMotorClient] = None
+    
+    def __new__(cls) -> 'DatabaseManager':
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
+    def __init__(self):
+        if not hasattr(self, 'initialized'):
+            self.config = DatabaseConfig()
+            self.initialized = True
+    
+    def get_sync_client(self) -> MongoClient:
+        """Get synchronous MongoDB client with connection pooling"""
+        if self._client is None:
+            try:
+                client_kwargs = {
+                    'maxPoolSize': self.config.max_pool_size,
+                    'minPoolSize': self.config.min_pool_size,
+                    'maxIdleTimeMS': self.config.max_idle_time_ms,
+                    'serverSelectionTimeoutMS': self.config.server_selection_timeout_ms,
+                    'socketTimeoutMS': self.config.socket_timeout_ms,
+                    'connectTimeoutMS': self.config.connect_timeout_ms,
+                }
+                
+                # SSL Configuration
+                if self.config.ssl_enabled:
+                    client_kwargs.update({
+                        'ssl': True,
+                        'ssl_cert_reqs': self.config.ssl_cert_reqs,
+                        'ssl_ca_certs': self.config.ssl_ca_certs,
+                        'ssl_certfile': self.config.ssl_cert_file,
+                        'ssl_keyfile': self.config.ssl_key_file,
+                    })
+                
+                self._client = MongoClient(self.config.mongodb_url, **client_kwargs)
+                
+                # Test connection
+                self._client.admin.command('ping')
+                logger.info("MongoDB sync client connected successfully")
+                
+            except ServerSelectionTimeoutError as e:
+                logger.error(f"Failed to connect to MongoDB: {e}")
+                raise
+                
+        return self._client
+    
+    def get_async_client(self) -> AsyncIOMotorClient:
+        """Get asynchronous MongoDB client for FastAPI"""
+        if self._async_client is None:
+            client_kwargs = {
+                'maxPoolSize': self.config.max_pool_size,
+                'minPoolSize': self.config.min_pool_size,
+                'maxIdleTimeMS': self.config.max_idle_time_ms,
+                'serverSelectionTimeoutMS': self.config.server_selection_timeout_ms,
+            }
+            
+            if self.config.ssl_enabled:
+                client_kwargs.update({
+                    'ssl': True,
+                    'ssl_cert_reqs': self.config.ssl_cert_reqs,
+                })
+            
+            self._async_client = AsyncIOMotorClient(self.config.mongodb_url, **client_kwargs)
+            logger.info("MongoDB async client initialized")
+            
+        return self._async_client
+    
+    def get_database(self, async_client: bool = True):
+        """Get database instance"""
+        if async_client:
+            client = self.get_async_client()
+        else:
+            client = self.get_sync_client()
+        
+        return client[self.config.database_name]
+    
+    async def close_connections(self):
+        """Gracefully close all connections"""
+        if self._client:
+            self._client.close()
+            logger.info("Sync MongoDB client closed")
+        
+        if self._async_client:
+            self._async_client.close()
+            logger.info("Async MongoDB client closed")
+
+# Initialize global database manager
+db_manager = DatabaseManager()
+```
+
+#### Environment Configuration
+
+```bash
+# .env file for production deployment
+MONGODB_URL=mongodb+srv://username:password@cluster.mongodb.net/
+DATABASE_NAME=production_app
+MONGO_MAX_POOL_SIZE=100
+MONGO_MIN_POOL_SIZE=10
+MONGO_SERVER_SELECTION_TIMEOUT_MS=5000
+MONGO_WRITE_CONCERN_W=majority
+MONGO_WRITE_CONCERN_J=true
+MONGO_SSL_ENABLED=true
+MONGO_READ_PREFERENCE=primaryPreferred
+```
+
+**Configuration Details:**
+
+```json
+{
+  "connection_pooling": {
+    "purpose": "Reuse connections to improve performance and reduce overhead",
+    "max_pool_size": "Maximum connections per client instance",
+    "min_pool_size": "Minimum connections maintained in pool",
+    "max_idle_time": "Time before idle connections are closed"
+  },
+  "write_concerns": {
+    "w_majority": "Wait for majority of replica set members to acknowledge",
+    "j_true": "Wait for write to be committed to journal",
+    "wtimeout": "Maximum time to wait for write acknowledgment"
+  },
+  "read_preferences": {
+    "primary": "Read from primary only (strong consistency)",
+    "primaryPreferred": "Read from primary, fallback to secondary",
+    "secondary": "Read from secondary only (eventual consistency)",
+    "nearest": "Read from nearest member (lowest latency)"
+  },
+  "ssl_configuration": {
+    "production_requirement": "Always enable SSL/TLS in production",
+    "certificate_validation": "Verify server certificates for security",
+    "client_certificates": "Use for mutual TLS authentication"
+  }
+}
+```
+
+### Database Design Principles
+
+#### Schema Design Patterns
+
+```python
+from abc import ABC, abstractmethod
+from typing import Dict, Any, List, Optional
+from enum import Enum
+from dataclasses import dataclass
+import uuid
+
+class SchemaPattern(Enum):
+    """Common MongoDB schema design patterns"""
+    EMBEDDED = "embedded"           # One-to-few relationships
+    REFERENCE = "reference"         # One-to-many relationships  
+    SUBSET = "subset"              # Frequently accessed subset
+    COMPUTED = "computed"          # Pre-computed values
+    BUCKET = "bucket"              # Time-series data
+    OUTLIER = "outlier"            # Handle large documents
+
+@dataclass
+class SchemaDesignRule:
+    """Rule for schema design decisions"""
+    pattern: SchemaPattern
+    use_when: List[str]
+    avoid_when: List[str]
+    max_documents: Optional[int] = None
+    max_size_mb: Optional[float] = None
+
+class SchemaDesignGuide:
+    """Enterprise schema design guidelines"""
+    
+    DESIGN_RULES = {
+        SchemaPattern.EMBEDDED: SchemaDesignRule(
+            pattern=SchemaPattern.EMBEDDED,
+            use_when=[
+                "One-to-few relationships (1:100 max)",
+                "Data accessed together frequently",
+                "Child data doesn't grow unbounded",
+                "Atomic updates needed across related data"
+            ],
+            avoid_when=[
+                "One-to-many with thousands of child documents",
+                "Child data accessed independently",
+                "Risk of 16MB document limit",
+                "High write load on child data"
+            ],
+            max_documents=100,
+            max_size_mb=16.0
+        ),
+        
+        SchemaPattern.REFERENCE: SchemaDesignRule(
+            pattern=SchemaPattern.REFERENCE,
+            use_when=[
+                "One-to-many or many-to-many relationships",
+                "Child data queried independently", 
+                "Large or growing child data",
+                "Different access patterns for parent/child"
+            ],
+            avoid_when=[
+                "Always accessed together",
+                "Small, bounded child data",
+                "Need atomic updates across documents",
+                "Simple one-to-few relationships"
+            ]
+        ),
+        
+        SchemaPattern.SUBSET: SchemaDesignRule(
+            pattern=SchemaPattern.SUBSET,
+            use_when=[
+                "Large documents with frequently accessed subset",
+                "Need fast access to summary data",
+                "Reduce network transfer and memory usage",
+                "Optimize for common query patterns"
+            ],
+            avoid_when=[
+                "All data accessed equally",
+                "Simple document structure",
+                "Data synchronization complexity not worth it"
+            ]
+        )
+    }
+    
+    @classmethod
+    def recommend_pattern(cls, 
+                         relationship_type: str,
+                         child_count: int,
+                         access_pattern: str,
+                         update_frequency: str) -> SchemaPattern:
+        """Recommend schema pattern based on use case"""
+        
+        if relationship_type == "one-to-few" and child_count <= 100:
+            if access_pattern == "together" and update_frequency == "low":
+                return SchemaPattern.EMBEDDED
+        
+        if relationship_type == "one-to-many" and child_count > 100:
+            return SchemaPattern.REFERENCE
+            
+        if relationship_type == "many-to-many":
+            return SchemaPattern.REFERENCE
+            
+        return SchemaPattern.REFERENCE  # Safe default
+
+# Example: E-commerce Product Catalog Schema
+class ProductCatalogSchema:
+    """Professional e-commerce schema design example"""
+    
+    @staticmethod
+    def product_document() -> Dict[str, Any]:
+        """Main product document with embedded and referenced data"""
+        return {
+            "_id": uuid.uuid4(),
+            
+            # Core product data (always accessed)
+            "sku": "PROD-001",
+            "name": "Professional Laptop",
+            "slug": "professional-laptop",
+            
+            # Category reference (one-to-many)
+            "category_id": uuid.uuid4(),
+            "category_path": ["Electronics", "Computers", "Laptops"],  # Denormalized for breadcrumbs
+            
+            # Supplier reference
+            "supplier_id": uuid.uuid4(),
+            "supplier_name": "TechCorp Inc",  # Denormalized for display
+            
+            # Pricing and inventory
+            "pricing": {
+                "base_price": 999.99,
+                "currency": "USD",
+                "tax_class": "standard",
+                "discounts": []  # Embedded array for active discounts
+            },
+            
+            "inventory": {
+                "stock_level": 150,
+                "reserved": 5,
+                "available": 145,
+                "warehouse_locations": ["WH-001", "WH-002"]
+            },
+            
+            # Product attributes (embedded for fast access)
+            "attributes": {
+                "brand": "TechBrand",
+                "model": "TB-2024",
+                "color": "Space Gray",
+                "weight_kg": 1.8,
+                "dimensions": {
+                    "length_cm": 35.5,
+                    "width_cm": 24.1,
+                    "height_cm": 1.9
+                }
+            },
+            
+            # SEO and metadata
+            "seo": {
+                "meta_title": "Professional Laptop - High Performance Computing",
+                "meta_description": "Powerful laptop for professional use...",
+                "keywords": ["laptop", "professional", "high-performance"]
+            },
+            
+            # Media (referenced for large files)
+            "media": {
+                "primary_image_id": uuid.uuid4(),
+                "image_ids": [uuid.uuid4(), uuid.uuid4()],  # References to media collection
+                "video_ids": []
+            },
+            
+            # Status and workflow
+            "status": "active",
+            "workflow_state": "published",
+            "visibility": "public",
+            
+            # Audit fields
+            "created_at": "2024-01-15T10:00:00Z",
+            "updated_at": "2024-01-15T10:00:00Z",
+            "created_by": uuid.uuid4(),
+            "version": 1,
+            
+            # Search optimization
+            "search_keywords": ["laptop", "professional", "techbrand", "computing"],
+            "search_score": 95.5
+        }
+    
+    @staticmethod
+    def product_reviews_collection() -> List[Dict[str, Any]]:
+        """Separate collection for product reviews (one-to-many reference)"""
+        return [
+            {
+                "_id": uuid.uuid4(),
+                "product_id": uuid.uuid4(),  # Reference to product
+                "customer_id": uuid.uuid4(),
+                "rating": 5,
+                "title": "Excellent laptop for development work",
+                "review_text": "Fast, reliable, great build quality...",
+                "verified_purchase": True,
+                "helpful_votes": 23,
+                "created_at": "2024-02-01T14:30:00Z",
+                "moderation_status": "approved"
+            }
+        ]
+    
+    @staticmethod
+    def product_analytics_collection() -> Dict[str, Any]:
+        """Analytics data in separate collection (time-series pattern)"""
+        return {
+            "_id": uuid.uuid4(),
+            "product_id": uuid.uuid4(),
+            "date": "2024-03-15",
+            "metrics": {
+                "page_views": 1250,
+                "unique_visitors": 890,
+                "add_to_cart": 45,
+                "purchases": 12,
+                "conversion_rate": 0.96,
+                "revenue": 11999.88
+            },
+            "traffic_sources": {
+                "organic": 45.2,
+                "paid": 23.8, 
+                "social": 12.5,
+                "email": 8.9,
+                "direct": 9.6
+            }
+        }
+```
+
+**Schema Design Decision Matrix:**
+
+```json
+{
+  "design_decision_matrix": {
+    "embedded_documents": {
+      "use_cases": [
+        "Product with variants (size, color) - max 50 variants",
+        "User with addresses - max 10 addresses", 
+        "Order with order items - max 100 items",
+        "Blog post with comments - max 200 comments"
+      ],
+      "performance_benefits": [
+        "Single query retrieves all related data",
+        "Atomic updates across related entities",
+        "Better data locality and cache performance",
+        "Reduced network round trips"
+      ],
+      "limitations": [
+        "16MB document size limit",
+        "Cannot query embedded data independently",
+        "Index limitations on nested arrays",
+        "Memory usage scales with document size"
+      ]
+    },
+    
+    "referenced_documents": {
+      "use_cases": [
+        "Product categories with thousands of products",
+        "User with order history - unlimited orders",
+        "Blog categories with posts",
+        "Customer reviews for products"
+      ],
+      "performance_benefits": [
+        "No document size limitations",
+        "Independent querying of related data",
+        "Efficient indexing strategies",
+        "Granular access control"
+      ],
+      "considerations": [
+        "Requires $lookup for joins (expensive)",
+        "Multiple queries for complete data",
+        "No automatic referential integrity",
+        "Potential for orphaned references"
+      ]
+    },
+    
+    "hybrid_approach": {
+      "strategy": "Combine embedded and referenced patterns",
+      "example": "Product with embedded attributes and referenced reviews",
+      "benefits": [
+        "Optimize for specific access patterns", 
+        "Balance query performance and flexibility",
+        "Denormalize frequently accessed data",
+        "Reference rarely accessed or large data"
+      ]
+    }
+  },
+  
+  "anti_patterns": {
+    "massive_arrays": {
+      "problem": "Embedding unlimited array growth",
+      "example": "User document with all order history embedded",
+      "solution": "Use references for unbounded relationships"
+    },
+    "deep_nesting": {
+      "problem": "More than 3-4 levels of nesting",
+      "example": "category.subcategory.subsubcategory.product",
+      "solution": "Flatten structure or use references"
+    },
+    "large_documents": {
+      "problem": "Documents approaching 16MB limit",
+      "example": "Product with hundreds of high-res images embedded",
+      "solution": "Reference large binary data externally"
+    }
+  }
+}
+```
+
+---
+
+## ⚙️ CORE IMPLEMENTATION
+
+### FastAPI Integration Architecture
+
+#### Application Structure
+
+```python
+# app/main.py - Production FastAPI application
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
+import logging
+import time
+import uuid
+from typing import Dict, Any
+
+from app.config.database import db_manager
+from app.config.settings import Settings
+from app.middleware.logging import LoggingMiddleware
+from app.middleware.monitoring import MonitoringMiddleware
+from app.routers import products, users, orders, health
+from app.exceptions import APIException, ValidationException
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan management for startup and shutdown events"""
+    
+    # Startup
+    logger.info("🚀 Starting FastAPI application")
+    
+    try:
+        # Initialize database connections
+        db = db_manager.get_database()
+        await db.command('ping')
+        logger.info("✅ Database connection established")
+        
+        # Create indexes
+        await create_database_indexes()
+        logger.info("✅ Database indexes created")
+        
+        # Initialize caches
+        await initialize_application_cache()
+        logger.info("✅ Application cache initialized")
+        
+    except Exception as e:
+        logger.error(f"❌ Startup failed: {e}")
+        raise
+    
+    yield
+    
+    # Shutdown  
+    logger.info("🔄 Shutting down application")
+    try:
+        await db_manager.close_connections()
+        logger.info("✅ Database connections closed")
+    except Exception as e:
+        logger.error(f"❌ Shutdown error: {e}")
+
+# Initialize FastAPI with production settings
+settings = Settings()
+app = FastAPI(
+    title="Enterprise E-commerce API",
+    description="Production-ready e-commerce API built with FastAPI and MongoDB",
+    version="1.0.0",
+    docs_url="/api/docs" if settings.DEBUG else None,
+    redoc_url="/api/redoc" if settings.DEBUG else None,
+    openapi_url="/api/openapi.json" if settings.DEBUG else None,
+    lifespan=lifespan
+)
+
+# Security middleware
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=settings.ALLOWED_HOSTS
+)
+
+# Performance middleware
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# CORS middleware for production
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["*"],
+    expose_headers=["X-Total-Count", "X-Page-Count"]
+)
+
+# Custom middleware
+app.add_middleware(MonitoringMiddleware)
+app.add_middleware(LoggingMiddleware)
+
+# Exception handlers
+@app.exception_handler(APIException)
+async def api_exception_handler(request: Request, exc: APIException):
+    """Handle custom API exceptions"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": {
+                "type": exc.__class__.__name__,
+                "message": exc.message,
+                "details": exc.details,
+                "request_id": str(uuid.uuid4()),
+                "timestamp": time.time()
+            }
+        }
+    )
+
+@app.exception_handler(ValidationException) 
+async def validation_exception_handler(request: Request, exc: ValidationException):
+    """Handle validation exceptions"""
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "error": {
+                "type": "ValidationError",
+                "message": "Request validation failed",
+                "validation_errors": exc.errors,
+                "request_id": str(uuid.uuid4())
+            }
+        }
+    )
+
+# Include routers with version prefixes
+app.include_router(health.router, prefix="/api/v1", tags=["health"])
+app.include_router(products.router, prefix="/api/v1", tags=["products"])
+app.include_router(users.router, prefix="/api/v1", tags=["users"])  
+app.include_router(orders.router, prefix="/api/v1", tags=["orders"])
+
+# Root endpoint
+@app.get("/", include_in_schema=False)
+async def root():
+    """API root endpoint"""
+    return {
+        "service": "Enterprise E-commerce API",
+        "version": "1.0.0",
+        "status": "operational",
+        "documentation": "/api/docs"
+    }
+
+async def create_database_indexes():
+    """Create optimized database indexes for production"""
+    db = db_manager.get_database()
+    
+    # Product indexes
+    await db.products.create_index("sku", unique=True)
+    await db.products.create_index("slug", unique=True)
+    await db.products.create_index([("name", "text"), ("description", "text")])
+    await db.products.create_index("category_id")
+    await db.products.create_index("supplier_id")
+    await db.products.create_index([("status", 1), ("created_at", -1)])
+    
+    # User indexes
+    await db.users.create_index("email", unique=True)
+    await db.users.create_index("username", unique=True)
+    await db.users.create_index([("status", 1), ("created_at", -1)])
+    
+    # Order indexes  
+    await db.orders.create_index("order_number", unique=True)
+    await db.orders.create_index("customer_id")
+    await db.orders.create_index([("status", 1), ("created_at", -1)])
+    await db.orders.create_index("created_at", expireAfterSeconds=86400 * 30)  # TTL for 30 days
+
+async def initialize_application_cache():
+    """Initialize application-level caching"""
+    # Redis cache initialization would go here
+    pass
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0", 
+        port=8000,
+        reload=settings.DEBUG,
+        workers=1 if settings.DEBUG else 4
+    )
+```
+
+#### Dependency Injection System
+
+```python
+# app/dependencies.py - Production dependency injection
+from fastapi import Depends, HTTPException, status, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from typing import Optional, Dict, Any
+import jwt
+from datetime import datetime, timedelta
+
+from app.config.database import db_manager
+from app.config.settings import Settings
+from app.models.user import User, UserRole
+from app.services.auth import AuthService
+from app.services.cache import CacheService
+
+settings = Settings()
+security = HTTPBearer(auto_error=False)
+
+# Database dependencies
+async def get_database() -> AsyncIOMotorDatabase:
+    """Get database instance for dependency injection"""
+    return db_manager.get_database()
+
+async def get_auth_service() -> AuthService:
+    """Get authentication service instance"""
+    return AuthService()
+
+async def get_cache_service() -> CacheService:
+    """Get cache service instance"""  
+    return CacheService()
+
+# Authentication dependencies
+async def get_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    auth_service: AuthService = Depends(get_auth_service)
+) -> Optional[User]:
+    """Get current authenticated user"""
+    
+    if not credentials:
+        return None
+        
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM]
+        )
+        
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication token"
+            )
+            
+        user = await auth_service.get_user_by_id(user_id)
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="User not found or inactive"
+            )
+            
+        return user
+        
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication token expired"
+        )
+    except jwt.JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token"
+        )
+
+async def require_authentication(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """Require valid authentication"""
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    return current_user
+
+async def require_admin_role(
+    current_user: User = Depends(require_authentication)
+) -> User:
+    """Require admin role"""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin role required"
+        )
+    return current_user
+
+# Request context dependencies
+async def get_request_context(request: Request) -> Dict[str, Any]:
+    """Get request context information"""
+    return {
+        "request_id": str(uuid.uuid4()),
+        "client_ip": request.client.host,
+        "user_agent": request.headers.get("user-agent"),
+        "timestamp": datetime.utcnow(),
+        "method": request.method,
+        "url": str(request.url)
+    }
+
+# Pagination dependencies
+async def get_pagination_params(
+    page: int = Query(1, ge=1, description="Page number"),
+    size: int = Query(20, ge=1, le=100, description="Page size")
+) -> Dict[str, int]:
+    """Get pagination parameters with validation"""
+    return {
+        "page": page,
+        "size": size,
+        "skip": (page - 1) * size
+    }
+
+# Rate limiting dependency
+async def rate_limit_check(
+    request: Request,
+    cache_service: CacheService = Depends(get_cache_service)
+):
+    """Check rate limiting for API endpoints"""
+    client_ip = request.client.host
+    rate_limit_key = f"rate_limit:{client_ip}"
+    
+    current_requests = await cache_service.increment(rate_limit_key)
+    
+    if current_requests == 1:
+        await cache_service.expire(rate_limit_key, 60)  # 1 minute window
+    
+    if current_requests > settings.RATE_LIMIT_PER_MINUTE:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded"
+        )
+```
+
+**Dependency Architecture Benefits:**
+
+```json
+{
+  "dependency_injection_benefits": {
+    "separation_of_concerns": {
+      "description": "Clean separation between business logic and infrastructure",
+      "implementation": "Service layer dependencies injected into route handlers",
+      "benefits": ["Testable code", "Maintainable architecture", "Loose coupling"]
+    },
+    
+    "resource_management": {
+      "description": "Automatic resource lifecycle management",
+      "implementation": "Database connections, cache instances managed centrally",
+      "benefits": ["Consistent resource usage", "Automatic cleanup", "Performance optimization"]
+    },
+    
+    "security_integration": {
+      "description": "Authentication and authorization as reusable dependencies",
+      "implementation": "JWT validation, role checking, rate limiting",
+      "benefits": ["Consistent security", "Easy to audit", "Reusable across endpoints"]
+    },
+    
+    "testing_support": {
+      "description": "Easy mocking and testing with dependency overrides",
+      "implementation": "Override dependencies in test environment",
+      "benefits": ["Unit testing", "Integration testing", "Isolated test environments"]
+    }
+  }
+}
+```
 3. [MongoDB Symbols Explained Simply](#mongodb-symbols-explained-simply)
 4. [Setup and First Connection](#setup-and-first-connection)
 
@@ -119,13 +1127,918 @@ print("This is a valid MongoDB document:", my_first_document)
 }
 ```
 
-## Introduction
+### MongoDB Symbols Explained Simply
 
-PyMongo is the official Python driver for MongoDB, providing a powerful interface for working with MongoDB databases. When combined with FastAPI, it creates a modern, high-performance stack for building APIs with flexible document storage. This guide covers everything from basic operations to advanced MongoDB patterns with detailed JSON examples.
+**The `$` Symbol Rule**: In MongoDB, whenever you see `$`, it means "this is a special MongoDB command"
 
-## Setup and Configuration
+```python
+# MongoDB symbols explained in the simplest way possible
+basic_symbols = {
+    # NO $ SYMBOL = Simple matching
+    "name": "iPhone"          # Find documents where name equals "iPhone"
+    
+    # WITH $ SYMBOL = Special MongoDB commands
+    "$gt": 100,               # Greater than 100
+    "$lt": 500,               # Less than 500  
+    "$in": ["apple", "samsung"],  # Value is in this list
+    "$exists": True,          # Field exists in document
+    "$regex": "Phone"         # Text contains "Phone"
+}
 
-### 1. Installation and Dependencies
+print("Basic rule: No $ = simple matching, With $ = MongoDB command")
+```
+
+**JSON Output:**
+```json
+{
+  "learning_objective": "Understand the basic rule of MongoDB symbols",
+  "the_dollar_rule": "$ means 'this is a MongoDB command, not regular data'",
+  "examples_without_dollar": {
+    "price": 100,
+    "explanation": "Find documents where price equals exactly 100"
+  },
+  "examples_with_dollar": {
+    "price": {"$gt": 100},
+    "explanation": "Find documents where price is greater than 100"
+  },
+  "most_common_symbols": {
+    "$gt": "Greater than (>)",
+    "$lt": "Less than (<)", 
+    "$in": "Value is in array/list",
+    "$exists": "Field exists",
+    "$regex": "Text pattern matching"
+  },
+  "remember": "Start with these 5 symbols - you can learn the rest later!"
+}
+```
+
+### Setup and First Connection
+
+**Step 1: Install MongoDB Tools**
+```bash
+# Install the essential packages (copy and paste this)
+pip install pymongo fastapi uvicorn
+
+# That's it! You're ready to start
+```
+
+**Step 2: Your First MongoDB Connection**
+```python
+# The simplest possible MongoDB connection
+from pymongo import MongoClient
+
+# Connect to MongoDB (assumes MongoDB is running on your computer)
+client = MongoClient("mongodb://localhost:27017")
+
+# Create/access a database
+db = client.my_first_database
+
+# Create/access a collection (like a table in SQL)
+collection = db.products
+
+# Test the connection
+try:
+    client.admin.command('ping')
+    print("✅ Connected to MongoDB!")
+    connection_status = "Connected successfully"
+except Exception as e:
+    print(f"❌ Connection failed: {e}")
+    connection_status = f"Failed: {e}"
+```
+
+**JSON Output:**
+```json
+{
+  "connection_test_result": {
+    "status": "Connected successfully", 
+    "database_name": "my_first_database",
+    "collection_name": "products",
+    "explanation": "You're now connected to MongoDB and ready to store data!"
+  },
+  "what_just_happened": [
+    "1. Connected to MongoDB running on your computer",
+    "2. Created/accessed a database called 'my_first_database'",
+    "3. Created/accessed a collection called 'products'",
+    "4. Tested the connection with a ping command"
+  ],
+  "mongodb_concepts": {
+    "database": "Like a folder that contains collections",
+    "collection": "Like a table in SQL - contains documents",  
+    "document": "Like a row in SQL - one record of data"
+  },
+  "next_steps": "Now you're ready to insert your first document!"
+}
+```
+
+---
+
+## 🟡 LEVEL 2: BASIC OPERATIONS
+
+### FastAPI Integration Basics
+
+**Your First FastAPI + MongoDB App**
+```python
+# app.py - The simplest FastAPI + MongoDB app possible
+from fastapi import FastAPI
+from pymongo import MongoClient
+from typing import Dict, Any
+
+# Create FastAPI app
+app = FastAPI(title="My First MongoDB API")
+
+# Connect to MongoDB
+client = MongoClient("mongodb://localhost:27017")
+db = client.simple_store
+
+@app.get("/")
+def hello():
+    """Welcome message"""
+    return {"message": "Hello! Your MongoDB API is running!"}
+
+@app.post("/products")
+def add_product(product: Dict[str, Any]):
+    """Add a product - your first MongoDB insert!"""
+    # Insert into MongoDB
+    result = db.products.insert_one(product)
+    
+    # Return success message
+    return {
+        "message": "Product added!",
+        "product_id": str(result.inserted_id),
+        "product": product
+    }
+
+@app.get("/products")
+def get_all_products():
+    """Get all products - your first MongoDB query!"""
+    products = []
+    for product in db.products.find():
+        product["_id"] = str(product["_id"])  # Convert ObjectId to string
+        products.append(product)
+    
+    return {
+        "message": f"Found {len(products)} products",
+        "products": products
+    }
+
+# Run with: uvicorn app:app --reload
+```
+
+**Test Your API:**
+```bash
+# Start your API
+uvicorn app:app --reload
+
+# Add a product (use curl or Postman)
+curl -X POST "http://localhost:8000/products" \
+     -H "Content-Type: application/json" \
+     -d '{"name": "Test Product", "price": 29.99}'
+
+# Get all products  
+curl "http://localhost:8000/products"
+```
+
+**JSON Output:**
+```json
+{
+  "api_test_results": {
+    "add_product_response": {
+      "message": "Product added!",
+      "product_id": "65f1234567890abcdef12345",
+      "product": {
+        "name": "Test Product",
+        "price": 29.99
+      }
+    },
+    "get_products_response": {
+      "message": "Found 1 products",
+      "products": [
+        {
+          "_id": "65f1234567890abcdef12345",
+          "name": "Test Product", 
+          "price": 29.99
+        }
+      ]
+    }
+  },
+  "congratulations": "You just built your first MongoDB API!",
+  "what_you_learned": [
+    "How to connect FastAPI to MongoDB",
+    "How to insert documents with insert_one()", 
+    "How to query documents with find()",
+    "How to handle ObjectId conversion to string"
+  ]
+}
+```
+
+### Simple Data Models
+
+**Why Use Pydantic Models?**
+Think of Pydantic models like a "quality control inspector" for your data.
+
+```python
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
+
+# Without Pydantic (risky!)
+risky_product = {
+    "name": "",           # Empty name - bad!
+    "price": -10,         # Negative price - bad!  
+    "email": "not-email"  # Invalid email - bad!
+}
+
+# With Pydantic (safe!)
+class Product(BaseModel):
+    name: str                    # Must be a string
+    price: float                 # Must be a number
+    description: Optional[str] = None  # Optional field
+    is_available: bool = True    # Default value
+    created_at: datetime = datetime.utcnow()  # Automatic timestamp
+
+# Now try to create a bad product
+try:
+    bad_product = Product(name="", price=-10)  # This will fail!
+except Exception as e:
+    print(f"Pydantic caught the error: {e}")
+
+# Create a good product
+good_product = Product(
+    name="iPhone 15",
+    price=999.99,
+    description="Latest iPhone"
+)
+
+print("Good product created:", good_product.dict())
+```
+
+**JSON Output:**
+```json
+{
+  "data_validation_demo": {
+    "risky_approach": {
+      "product": {"name": "", "price": -10, "email": "not-email"},
+      "problems": ["Empty name", "Negative price", "Invalid email"],
+      "result": "Bad data gets into database!"
+    },
+    "safe_approach_with_pydantic": {
+      "validation_errors": {
+        "empty_name": "String too short",
+        "negative_price": "Must be greater than 0",
+        "invalid_email": "Not a valid email format"
+      },
+      "good_product": {
+        "name": "iPhone 15",
+        "price": 999.99, 
+        "description": "Latest iPhone",
+        "is_available": true,
+        "created_at": "2024-03-15T10:30:00"
+      },
+      "result": "Only clean data enters database!"
+    }
+  },
+  "pydantic_benefits": [
+    "Automatic data validation",
+    "Clear error messages", 
+    "Type hints for better code",
+    "Automatic documentation",
+    "JSON serialization"
+  ]
+}
+```
+
+### Basic CRUD Operations - Step by Step
+
+**C.R.U.D = Create, Read, Update, Delete - The 4 basic database operations**
+
+```python
+from pymongo import MongoClient
+from bson import ObjectId
+from datetime import datetime
+
+# Setup
+client = MongoClient("mongodb://localhost:27017")
+db = client.learning_mongodb
+products = db.products
+
+# 🟢 CREATE - Add new documents
+def create_product():
+    """Step 1: CREATE - Add a new product"""
+    
+    # Simple product document
+    new_product = {
+        "name": "Learning Notebook",
+        "price": 15.99,
+        "category": "stationery", 
+        "in_stock": True,
+        "created_at": datetime.utcnow()
+    }
+    
+    # Insert into MongoDB
+    result = products.insert_one(new_product)
+    
+    return {
+        "operation": "CREATE",
+        "success": True,
+        "inserted_id": str(result.inserted_id),
+        "product": new_product,
+        "explanation": "Added one new product to the database"
+    }
+
+# 🔵 READ - Find existing documents  
+def read_products():
+    """Step 2: READ - Find products"""
+    
+    # Find all products
+    all_products = []
+    for product in products.find():
+        product["_id"] = str(product["_id"])  # Convert ObjectId
+        all_products.append(product)
+    
+    # Find specific product
+    notebook = products.find_one({"name": "Learning Notebook"})
+    if notebook:
+        notebook["_id"] = str(notebook["_id"])
+    
+    return {
+        "operation": "READ",
+        "total_products": len(all_products),
+        "all_products": all_products,
+        "specific_product": notebook,
+        "explanation": "Retrieved products from database"
+    }
+
+# 🟠 UPDATE - Modify existing documents
+def update_product():
+    """Step 3: UPDATE - Modify a product"""
+    
+    # Update the notebook's price
+    result = products.update_one(
+        {"name": "Learning Notebook"},     # Find this product
+        {"$set": {"price": 12.99}}         # Set new price
+    )
+    
+    # Get the updated product
+    updated_product = products.find_one({"name": "Learning Notebook"})
+    if updated_product:
+        updated_product["_id"] = str(updated_product["_id"])
+    
+    return {
+        "operation": "UPDATE", 
+        "matched_count": result.matched_count,
+        "modified_count": result.modified_count,
+        "updated_product": updated_product,
+        "explanation": "Changed the price from $15.99 to $12.99"
+    }
+
+# 🔴 DELETE - Remove documents
+def delete_product():
+    """Step 4: DELETE - Remove a product"""
+    
+    # Delete the notebook
+    result = products.delete_one({"name": "Learning Notebook"})
+    
+    # Check if it's gone
+    remaining_count = products.count_documents({})
+    
+    return {
+        "operation": "DELETE",
+        "deleted_count": result.deleted_count,
+        "remaining_products": remaining_count,
+        "explanation": "Removed the Learning Notebook from database"
+    }
+
+# Execute all CRUD operations
+create_result = create_product()
+read_result = read_products()
+update_result = update_product() 
+delete_result = delete_product()
+```
+
+**JSON Output:**
+```json
+{
+  "crud_operations_complete": {
+    "create_operation": {
+      "operation": "CREATE",
+      "success": true,
+      "inserted_id": "65f1234567890abcdef12345",
+      "product": {
+        "name": "Learning Notebook",
+        "price": 15.99,
+        "category": "stationery",
+        "in_stock": true,
+        "created_at": "2024-03-15T10:30:00"
+      },
+      "explanation": "Added one new product to the database"
+    },
+    
+    "read_operation": {
+      "operation": "READ", 
+      "total_products": 1,
+      "specific_product": {
+        "_id": "65f1234567890abcdef12345",
+        "name": "Learning Notebook",
+        "price": 15.99,
+        "category": "stationery"
+      },
+      "explanation": "Retrieved products from database"
+    },
+    
+    "update_operation": {
+      "operation": "UPDATE",
+      "matched_count": 1,
+      "modified_count": 1,
+      "updated_product": {
+        "_id": "65f1234567890abcdef12345",
+        "name": "Learning Notebook",
+        "price": 12.99,
+        "category": "stationery"
+      },
+      "explanation": "Changed the price from $15.99 to $12.99"
+    },
+    
+    "delete_operation": {
+      "operation": "DELETE",
+      "deleted_count": 1,
+      "remaining_products": 0,
+      "explanation": "Removed the Learning Notebook from database"
+    }
+  },
+  
+  "crud_summary": {
+    "CREATE": "insert_one() - Add new documents",
+    "READ": "find() or find_one() - Get documents",
+    "UPDATE": "update_one() - Modify documents", 
+    "DELETE": "delete_one() - Remove documents"
+  },
+  
+  "key_learnings": [
+    "CRUD operations are the foundation of database work",
+    "Each operation returns a result object with status info",
+    "Always convert ObjectId to string for JSON responses",
+    "MongoDB operations are very similar to Python dictionary operations"
+  ]
+}
+```
+
+### Simple Queries and Filters
+
+**Basic Query Patterns - Start Here!**
+
+```python
+from pymongo import MongoClient
+
+# Setup some sample data first
+client = MongoClient("mongodb://localhost:27017")
+db = client.learning_queries
+products = db.products
+
+# Insert sample products
+sample_products = [
+    {"name": "iPhone 15", "price": 999, "category": "phones", "brand": "apple"},
+    {"name": "Samsung S24", "price": 849, "category": "phones", "brand": "samsung"},
+    {"name": "iPad Pro", "price": 1299, "category": "tablets", "brand": "apple"},
+    {"name": "MacBook Air", "price": 1099, "category": "laptops", "brand": "apple"},
+    {"name": "Dell XPS", "price": 1199, "category": "laptops", "brand": "dell"}
+]
+products.insert_many(sample_products)
+
+# 🟢 BASIC QUERIES - Exact matching
+def basic_queries():
+    """Simple exact matching queries"""
+    
+    results = {}
+    
+    # 1. Find by exact value
+    apple_products = []
+    for product in products.find({"brand": "apple"}):
+        product["_id"] = str(product["_id"])
+        apple_products.append(product)
+    
+    results["apple_products"] = {
+        "query": {"brand": "apple"},
+        "explanation": "Find all products where brand equals 'apple'",
+        "count": len(apple_products),
+        "products": apple_products
+    }
+    
+    # 2. Find by multiple conditions (AND)
+    expensive_phones = []
+    for product in products.find({"category": "phones", "price": {"$gte": 900}}):
+        product["_id"] = str(product["_id"])
+        expensive_phones.append(product)
+    
+    results["expensive_phones"] = {
+        "query": {"category": "phones", "price": {"$gte": 900}},
+        "explanation": "Find phones that cost $900 or more",
+        "count": len(expensive_phones),
+        "products": expensive_phones
+    }
+    
+    # 3. Find by value in list
+    mobile_devices = []
+    for product in products.find({"category": {"$in": ["phones", "tablets"]}}):
+        product["_id"] = str(product["_id"])
+        mobile_devices.append(product)
+    
+    results["mobile_devices"] = {
+        "query": {"category": {"$in": ["phones", "tablets"]}},
+        "explanation": "Find products that are phones OR tablets",
+        "count": len(mobile_devices),
+        "products": mobile_devices
+    }
+    
+    return results
+
+query_results = basic_queries()
+```
+
+**JSON Output:**
+```json
+{
+  "basic_query_patterns": {
+    "apple_products": {
+      "query": {"brand": "apple"},
+      "explanation": "Find all products where brand equals 'apple'",
+      "count": 3,
+      "products": [
+        {"name": "iPhone 15", "price": 999, "category": "phones", "brand": "apple"},
+        {"name": "iPad Pro", "price": 1299, "category": "tablets", "brand": "apple"},
+        {"name": "MacBook Air", "price": 1099, "category": "laptops", "brand": "apple"}
+      ],
+      "pattern": "exact_match"
+    },
+    
+    "expensive_phones": {
+      "query": {"category": "phones", "price": {"$gte": 900}},
+      "explanation": "Find phones that cost $900 or more",
+      "count": 1,
+      "products": [
+        {"name": "iPhone 15", "price": 999, "category": "phones", "brand": "apple"}
+      ],
+      "pattern": "multiple_conditions_AND"
+    },
+    
+    "mobile_devices": {
+      "query": {"category": {"$in": ["phones", "tablets"]}},
+      "explanation": "Find products that are phones OR tablets",
+      "count": 3,
+      "products": [
+        {"name": "iPhone 15", "price": 999, "category": "phones", "brand": "apple"},
+        {"name": "Samsung S24", "price": 849, "category": "phones", "brand": "samsung"},
+        {"name": "iPad Pro", "price": 1299, "category": "tablets", "brand": "apple"}
+      ],
+      "pattern": "value_in_list_OR"
+    }
+  },
+  
+  "query_patterns_explained": {
+    "exact_match": "field: value - Find where field equals value exactly",
+    "range_query": "field: {$gte: 900} - Find where field is >= 900",
+    "list_query": "field: {$in: [val1, val2]} - Find where field is val1 OR val2"
+  },
+  
+  "common_operators": {
+    "$gte": "Greater than or equal (>=)",
+    "$gt": "Greater than (>)",
+    "$lte": "Less than or equal (<=)", 
+    "$lt": "Less than (<)",
+    "$in": "Value is in the list",
+    "$nin": "Value is NOT in the list"
+  }
+}
+```
+
+### Working with Arrays and Objects
+
+**MongoDB handles nested data beautifully - here's how:**
+
+```python
+# Let's add products with more complex data
+complex_products = [
+    {
+        "name": "iPhone 15 Pro",
+        "price": 1199,
+        "specs": {
+            "storage": ["128GB", "256GB", "512GB"],
+            "colors": ["Natural Titanium", "Blue Titanium", "White"],
+            "camera": {"main": "48MP", "ultra_wide": "12MP"}
+        },
+        "tags": ["premium", "smartphone", "apple", "5g"],
+        "reviews": [
+            {"rating": 5, "comment": "Amazing phone!", "verified": True},
+            {"rating": 4, "comment": "Great camera", "verified": True}
+        ]
+    },
+    {
+        "name": "Samsung Galaxy S24",
+        "price": 849,
+        "specs": {
+            "storage": ["256GB", "512GB"],
+            "colors": ["Phantom Black", "Cream", "Violet"],
+            "camera": {"main": "50MP", "ultra_wide": "12MP"}
+        },
+        "tags": ["android", "smartphone", "samsung"],
+        "reviews": [
+            {"rating": 4, "comment": "Good value", "verified": False}
+        ]
+    }
+]
+
+products.insert_many(complex_products)
+
+def query_nested_data():
+    """Query arrays and nested objects"""
+    
+    results = {}
+    
+    # 1. Query array elements
+    premium_products = []
+    for product in products.find({"tags": "premium"}):  # MongoDB automatically searches arrays!
+        product["_id"] = str(product["_id"])
+        premium_products.append(product)
+    
+    results["premium_products"] = {
+        "query": {"tags": "premium"},
+        "explanation": "Find products with 'premium' in their tags array",
+        "products": premium_products
+    }
+    
+    # 2. Query nested object properties
+    high_res_cameras = []
+    for product in products.find({"specs.camera.main": "48MP"}):  # Use dot notation!
+        product["_id"] = str(product["_id"])
+        high_res_cameras.append(product)
+    
+    results["high_res_cameras"] = {
+        "query": {"specs.camera.main": "48MP"},
+        "explanation": "Find products with 48MP main camera using dot notation",
+        "products": high_res_cameras
+    }
+    
+    # 3. Query array of objects
+    highly_rated = []
+    for product in products.find({"reviews.rating": 5}):  # Searches all review objects!
+        product["_id"] = str(product["_id"])
+        highly_rated.append(product)
+    
+    results["highly_rated"] = {
+        "query": {"reviews.rating": 5},
+        "explanation": "Find products with any 5-star review",
+        "products": highly_rated
+    }
+    
+    return results
+
+nested_results = query_nested_data()
+```
+
+**JSON Output:**
+```json
+{
+  "nested_data_queries": {
+    "premium_products": {
+      "query": {"tags": "premium"},
+      "explanation": "MongoDB automatically searches inside arrays - finds products with 'premium' tag",
+      "how_it_works": "MongoDB checks each element in the tags array",
+      "products": [
+        {
+          "name": "iPhone 15 Pro",
+          "tags": ["premium", "smartphone", "apple", "5g"],
+          "matched_because": "tags array contains 'premium'"
+        }
+      ]
+    },
+    
+    "high_res_cameras": {
+      "query": {"specs.camera.main": "48MP"},
+      "explanation": "Use dot notation to access nested object properties",
+      "how_it_works": "specs.camera.main means: go into specs, then camera, then main",
+      "products": [
+        {
+          "name": "iPhone 15 Pro",
+          "specs": {
+            "camera": {"main": "48MP", "ultra_wide": "12MP"}
+          },
+          "matched_because": "specs.camera.main equals '48MP'"
+        }
+      ]
+    },
+    
+    "highly_rated": {
+      "query": {"reviews.rating": 5},
+      "explanation": "Query array of objects - finds any review with rating 5",
+      "how_it_works": "MongoDB searches all objects in reviews array for rating: 5",
+      "products": [
+        {
+          "name": "iPhone 15 Pro",
+          "reviews": [
+            {"rating": 5, "comment": "Amazing phone!", "verified": true}
+          ],
+          "matched_because": "One review has rating: 5"
+        }
+      ]
+    }
+  },
+  
+  "key_concepts": {
+    "array_queries": "MongoDB automatically searches inside arrays",
+    "dot_notation": "Use dots to access nested properties: parent.child.grandchild",
+    "array_of_objects": "MongoDB searches all objects in array for matching properties"
+  },
+  
+  "dot_notation_examples": {
+    "specs.storage": "Access storage inside specs object",
+    "reviews.rating": "Access rating in any review object",
+    "address.billing.city": "Access city in billing address"
+  }
+}
+```
+
+---
+
+## 🟠 LEVEL 3: INTERMEDIATE CONCEPTS
+
+### Document Relationships Made Simple
+
+**Think of relationships like connections between different file folders:**
+
+```python
+# Let's build a simple blog system to understand relationships
+
+# METHOD 1: EMBEDDED DOCUMENTS (One-to-Few)
+# When comments belong to a blog post and you always load them together
+
+blog_post_with_comments = {
+    "_id": ObjectId("507f1f77bcf86cd799439001"),
+    "title": "My First Blog Post",
+    "content": "This is my first post about MongoDB!",
+    "author": "John Doe",
+    "created_at": datetime.utcnow(),
+    
+    # EMBEDDED: Comments are stored INSIDE the blog post
+    "comments": [
+        {
+            "author": "Jane Smith",
+            "text": "Great post!",
+            "created_at": datetime.utcnow()
+        },
+        {
+            "author": "Bob Wilson", 
+            "text": "Very helpful, thanks!",
+            "created_at": datetime.utcnow()
+        }
+    ]
+}
+
+# METHOD 2: REFERENCES (One-to-Many)  
+# When you have many items that reference a parent
+
+# Parent collection: categories
+categories_collection = [
+    {"_id": ObjectId("507f1f77bcf86cd799439011"), "name": "Technology", "description": "Tech posts"},
+    {"_id": ObjectId("507f1f77bcf86cd799439012"), "name": "Travel", "description": "Travel stories"}
+]
+
+# Child collection: posts (each post references a category)
+posts_collection = [
+    {
+        "_id": ObjectId("507f1f77bcf86cd799439021"),
+        "title": "Learning MongoDB",
+        "content": "MongoDB is great!",
+        "category_id": ObjectId("507f1f77bcf86cd799439011")  # References Technology category
+    },
+    {
+        "_id": ObjectId("507f1f77bcf86cd799439022"),
+        "title": "My Trip to Japan",
+        "content": "Japan was amazing!",
+        "category_id": ObjectId("507f1f77bcf86cd799439012")  # References Travel category
+    }
+]
+
+def demonstrate_relationships():
+    """Show different relationship patterns"""
+    
+    # Insert sample data
+    db.blog_posts.insert_one(blog_post_with_comments)
+    db.categories.insert_many(categories_collection)
+    db.posts.insert_many(posts_collection)
+    
+    results = {}
+    
+    # 1. EMBEDDED RELATIONSHIP - Get post with comments
+    post_with_comments = db.blog_posts.find_one({"title": "My First Blog Post"})
+    post_with_comments["_id"] = str(post_with_comments["_id"])
+    
+    results["embedded_example"] = {
+        "relationship_type": "Embedded (One-to-Few)",
+        "data": post_with_comments,
+        "explanation": "Comments are stored inside the blog post document"
+    }
+    
+    # 2. REFERENCE RELATIONSHIP - Get posts with category names
+    posts_with_categories = []
+    for post in db.posts.find():
+        # Get the category for this post
+        category = db.categories.find_one({"_id": post["category_id"]})
+        
+        post_data = {
+            "_id": str(post["_id"]),
+            "title": post["title"],
+            "content": post["content"],
+            "category_name": category["name"] if category else "No Category"
+        }
+        posts_with_categories.append(post_data)
+    
+    results["reference_example"] = {
+        "relationship_type": "References (One-to-Many)",
+        "data": posts_with_categories,
+        "explanation": "Posts store category_id to reference the category document"
+    }
+    
+    return results
+
+relationship_examples = demonstrate_relationships()
+```
+
+**JSON Output:**
+```json
+{
+  "document_relationships_explained": {
+    "embedded_example": {
+      "relationship_type": "Embedded (One-to-Few)",
+      "data": {
+        "_id": "507f1f77bcf86cd799439001",
+        "title": "My First Blog Post",
+        "content": "This is my first post about MongoDB!",
+        "author": "John Doe",
+        "comments": [
+          {"author": "Jane Smith", "text": "Great post!"},
+          {"author": "Bob Wilson", "text": "Very helpful, thanks!"}
+        ]
+      },
+      "explanation": "Comments are stored inside the blog post document",
+      "when_to_use": ["Few related items (1-100)", "Always accessed together", "Don't need to query child items alone"],
+      "advantages": ["Fast - one query gets everything", "Atomic updates", "No complex joins"],
+      "disadvantages": ["Document size limits", "Can't query comments independently"]
+    },
+    
+    "reference_example": {
+      "relationship_type": "References (One-to-Many)",
+      "data": [
+        {
+          "_id": "507f1f77bcf86cd799439021",
+          "title": "Learning MongoDB",
+          "content": "MongoDB is great!",
+          "category_name": "Technology"
+        },
+        {
+          "_id": "507f1f77bcf86cd799439022", 
+          "title": "My Trip to Japan",
+          "content": "Japan was amazing!",
+          "category_name": "Travel"
+        }
+      ],
+      "explanation": "Posts store category_id to reference the category document",
+      "when_to_use": ["Many related items", "Need to query child items independently", "Child items are large"],
+      "advantages": ["No document size limits", "Can query children alone", "No data duplication"],
+      "disadvantages": ["Requires multiple queries or joins", "Slower than embedded"]
+    }
+  },
+  
+  "relationship_decision_tree": {
+    "question_1": "How many related items do you have?",
+    "few_items": "Use Embedded Documents",
+    "many_items": "Use References",
+    
+    "question_2": "Do you always access parent and child together?",
+    "always_together": "Use Embedded Documents", 
+    "sometimes_separate": "Use References",
+    
+    "question_3": "Do you need to query child items independently?",
+    "yes_independent": "Use References",
+    "no_always_with_parent": "Use Embedded Documents"
+  },
+  
+  "real_world_examples": {
+    "embedded_good_for": ["Order with order items", "User with addresses", "Product with images"],
+    "references_good_for": ["Posts in categories", "Products by suppliers", "Orders by customers"]
+  }
+}
+```
+
+I'll create a complete task completion summary showing what we've achieved:
+
+<function_calls>
+<invoke name="TodoWrite">
+<parameter name="todos">[
+  {"content": "Restructure PyMongo README with clear basic-to-advanced progression", "status": "completed", "activeForm": "Restructuring PyMongo README with clear basic-to-advanced progression"},
+  {"content": "Add comprehensive Level 1 (Absolute Basics) section", "status": "completed", "activeForm": "Adding comprehensive Level 1 (Absolute Basics) section"},
+  {"content": "Add detailed Level 2 (Basic Operations) with step-by-step examples", "status": "completed", "activeForm": "Adding detailed Level 2 (Basic Operations) with step-by-step examples"},
+  {"content": "Add Level 3 (Intermediate Concepts) with relationships explained simply", "status": "completed", "activeForm": "Adding Level 3 (Intermediate Concepts) with relationships explained simply"},
+  {"content": "Create progressive learning structure with clear difficulty indicators", "status": "completed", "activeForm": "Creating progressive learning structure with clear difficulty indicators"}
+]
 
 ```bash
 # Install required packages
