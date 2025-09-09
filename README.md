@@ -44,19 +44,19 @@ graph TB
 
 ### 🏗️ **FOUNDATION** (Essential Concepts)
 1. [MongoDB Architecture Overview](#mongodb-architecture-overview)
-2. [Environment Setup & Configuration](#environment-setup--configuration)
+2. [Environment Setup & Configuration](#environment-setup-configuration)
 3. [Database Design Principles](#database-design-principles)
 4. [Connection Management](#connection-management)
 
 ### ⚙️ **CORE IMPLEMENTATION** (Development Patterns)
 5. [FastAPI Integration Architecture](#fastapi-integration-architecture)
-6. [Data Models & Schema Design](#data-models--schema-design)
+6. [Data Models and Schema](#data-models-and-schema)
 7. [Repository Pattern Implementation](#repository-pattern-implementation)
-8. [CRUD Operations & Best Practices](#crud-operations--best-practices)
+8. [Basic CRUD Operations](#basic-crud-operations)
 9. [Query Optimization Techniques](#query-optimization-techniques)
 
 ### 🔍 **DATA OPERATIONS** (Advanced Querying)
-10. [Document Relationships & References](#document-relationships--references)
+10. [Document Relationships in MongoDB - Complete Guide](#document-relationships-in-mongodb---complete-guide)
 11. [Complex Query Patterns](#complex-query-patterns)
 12. [Aggregation Pipeline Design](#aggregation-pipeline-design)
 13. [Full-Text Search Implementation](#full-text-search-implementation)
@@ -64,17 +64,17 @@ graph TB
 
 ### 🚀 **PRODUCTION READY** (Enterprise Patterns)
 15. [Performance Optimization Strategies](#performance-optimization-strategies)
-16. [Indexing Strategy & Implementation](#indexing-strategy--implementation)
+16. [Indexing Strategy & Implementation](#indexing-strategy-implementation)
 17. [Transaction Management](#transaction-management)
-18. [Error Handling & Resilience](#error-handling--resilience)
+18. [Error Handling & Resilience](#error-handling-resilience)
 19. [Testing Methodologies](#testing-methodologies)
 20. [Security Implementation](#security-implementation)
 
 ### 🎯 **DEPLOYMENT & MONITORING** (Operations)
 21. [Production Deployment Patterns](#production-deployment-patterns)
-22. [Monitoring & Observability](#monitoring--observability)
+22. [Monitoring & Observability](#monitoring-observability)
 23. [Scaling Strategies](#scaling-strategies)
-24. [Troubleshooting & Debugging](#troubleshooting--debugging)
+24. [Troubleshooting & Debugging](#troubleshooting-debugging)
 
 ---
 
